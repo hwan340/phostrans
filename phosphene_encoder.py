@@ -1,4 +1,4 @@
-#This is the generator model for the CycleGAN model
+#This is the encoder model for the CycleGAN model, which encode value for each phosphene
 import torch
 import torch.nn as nn
 
@@ -36,7 +36,7 @@ class ResidualBlock(nn.Module):
         return x + self.block(x)
 
 # define the generator model
-class Generator(nn.Module):
+class Phoscoder(nn.Module):
     # initialize the class with img_channels, num_features, num_residuals
     def __init__(self, img_channels, num_features=64, num_residuals=9):
         super().__init__()
@@ -82,9 +82,9 @@ def test():
     img_channels = 3
     img_size = 256
     x = torch.randn((2, img_channels, img_size, img_size))
-    gen = Generator(img_channels, 9)
+    gen = Phoscoder(img_channels, 9)
     print(gen(x).shape)
-    print(Generator)
+    print(Phoscoder)
 
 if __name__ == "__main__":
     test()
