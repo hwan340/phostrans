@@ -1,6 +1,7 @@
 #This is the generator model for the CycleGAN model
 import torch
 import torch.nn as nn
+from torchinfo import summary
 
 # Define the block for generator model
 class ConvBlock(nn.Module):
@@ -64,7 +65,7 @@ class Generator(nn.Module):
                 ConvBlock(num_features*2, num_features*1, down=False, kernel_size=3, stride=2, padding=1, output_padding=1)
             ]
         )
-        # final layer, change this so the output is a vector representing phosphene image
+        # final layer
         self.last = nn.Conv2d(num_features, img_channels, kernel_size=7, stride=1, padding=3, padding_mode="reflect")
 
     # forward method
@@ -79,12 +80,12 @@ class Generator(nn.Module):
 
 # test the generator model
 def test():
-    img_channels = 3
-    img_size = 256
+    img_channels = 1
+    img_size = 1080
     x = torch.randn((2, img_channels, img_size, img_size))
     gen = Generator(img_channels, 9)
     print(gen(x).shape)
-    print(Generator)
+    summary(gen, (1, 1080, 1080))
 
 if __name__ == "__main__":
     test()

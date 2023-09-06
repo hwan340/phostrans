@@ -1,6 +1,7 @@
 #This is the encoder model for the CycleGAN model, which encode value for each phosphene
 import torch
 import torch.nn as nn
+from torchinfo import summary
 
 # Define the block for generator model
 class ConvBlock(nn.Module):
@@ -13,7 +14,7 @@ class ConvBlock(nn.Module):
             if down
             else nn.ConvTranspose2d(in_channels, out_channels, **kwargs),
             nn.InstanceNorm2d(out_channels),
-            nn.ReLU(inplace=True) if use_act else nn.Identity() # inplace=True copliot is learning form your script
+            nn.ReLU(inplace=True) if use_act else nn.Identity()
         )
 
     # forward method
@@ -65,7 +66,7 @@ class Phoscoder(nn.Module):
             ]
         )
         # final layer, change this so the output is a vector representing phosphene image
-        self.last = nn.Conv2d(num_features, img_channels, kernel_size=7, stride=1, padding=3, padding_mode="reflect")
+        self.last = nn.Linear(num_features*256*256, 1200) # 256*256 is the size of the image
 
     # forward method
     def forward(self, x):
@@ -75,16 +76,18 @@ class Phoscoder(nn.Module):
         x = self.res_blocks(x)
         for layer in self.up_blocks:
             x = layer(x)
+        x = torch.flatten(x)
+
         return torch.tanh(self.last(x))
 
 # test the generator model
 def test():
-    img_channels = 3
+    img_channels = 1
     img_size = 256
-    x = torch.randn((2, img_channels, img_size, img_size))
+    x = torch.randn((1, img_channels, img_size, img_size))
     gen = Phoscoder(img_channels, 9)
     print(gen(x).shape)
-    print(Phoscoder)
+    summary(gen,(1, 256, 256))
 
 if __name__ == "__main__":
     test()
