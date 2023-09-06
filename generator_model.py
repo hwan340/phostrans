@@ -85,7 +85,7 @@ def test():
     x = torch.randn((2, img_channels, img_size, img_size))
     gen = Generator(img_channels, 9)
     print(gen(x).shape)
-    summary(gen, (1, 1080, 1080))
+    summary(gen, (1, 100, 100))
 
 if __name__ == "__main__":
     test()
