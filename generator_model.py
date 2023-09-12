@@ -81,11 +81,11 @@ class Generator(nn.Module):
 # test the generator model
 def test():
     img_channels = 1
-    img_size = 1080
-    x = torch.randn((2, img_channels, img_size, img_size))
-    gen = Generator(img_channels, 9)
+    img_size = 512
+    x = torch.randn((1, img_channels, img_size, img_size))
+    gen = Generator(img_channels, 64)
     print(gen(x).shape)
-    summary(gen, (1, 100, 100))
+    summary(gen, (1, 512, 512))
 
 if __name__ == "__main__":
     test()

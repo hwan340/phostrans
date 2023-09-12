@@ -18,10 +18,14 @@ from tqdm import tqdm
 from torchvision.utils import save_image
 from discriminator_model import Discriminator
 from generator_model import Generator
+from phosphene_encoder import Phoscoder
+from simulator_model import Simulator
 import scipy.io # for loading .mat file
+# horse -> original
+# zebra -> target/phosphene
 
 def train_fn(
-    disc_H, disc_Z, gen_Z, gen_H, loader, opt_disc, opt_gen, l1, mse, d_scaler, g_scaler
+    disc_H, disc_Z, gen_Z, gen_H, loader, opt_disc, opt_gen, l1, mse, d_scaler, g_scaler, grid
 ):
     H_reals = 0
     H_fakes = 0
@@ -42,7 +46,10 @@ def train_fn(
             D_H_fake_loss = mse(D_H_fake, torch.zeros_like(D_H_fake))
             D_H_loss = D_H_real_loss + D_H_fake_loss
 
-            fake_zebra = gen_Z(horse)
+            fake_zebra_endcoding = gen_Z(horse)
+            simu = Simulator(fake_zebra_endcoding, grid, imgsize=512)
+            fake_zebra = torch.from_numpy(simu.image).to(config.DEVICE)
+            fake_zebra = fake_zebra[None, None].float() # add batch and channel dimension
             D_Z_real = disc_Z(zebra)
             D_Z_fake = disc_Z(fake_zebra.detach())
             D_Z_real_loss = mse(D_Z_real, torch.ones_like(D_Z_real))
@@ -66,13 +73,21 @@ def train_fn(
             loss_G_Z = mse(D_Z_fake, torch.ones_like(D_Z_fake))
 
             # cycle loss
-            cycle_zebra = gen_Z(fake_horse)
+            cycle_zebra_encoding = gen_Z(fake_horse)
+            simu_cyc = Simulator(cycle_zebra_encoding, grid, imgsize=512)
+            cycle_zebra = torch.from_numpy(simu_cyc.image).to(config.DEVICE)
+            cycle_zebra = cycle_zebra[None, None].float()
+
             cycle_horse = gen_H(fake_zebra)
             cycle_zebra_loss = l1(zebra, cycle_zebra)
             cycle_horse_loss = l1(horse, cycle_horse)
 
             # identity loss (remove these for efficiency if you set lambda_identity=0)
-            identity_zebra = gen_Z(zebra)
+            identity_zebra_encoding = gen_Z(zebra)
+            simu_id = Simulator(identity_zebra_encoding, grid, imgsize=512)
+            identity_zebra = torch.from_numpy(simu_id.image).to(config.DEVICE)
+            cycle_zebra = cycle_zebra[None, None].float()
+
             identity_horse = gen_H(horse)
             identity_zebra_loss = l1(zebra, identity_zebra)
             identity_horse_loss = l1(horse, identity_horse)
@@ -93,17 +108,20 @@ def train_fn(
         g_scaler.update()
 
         if idx % 200 == 0:
-            save_image(fake_horse * 0.5 + 0.5, f"saved_images/horse_{idx}.png")
-            save_image(fake_zebra * 0.5 + 0.5, f"saved_images/zebra_{idx}.png")
+            save_image(fake_horse * 0.5 + 0.5, f"saved_images/original_{idx}.png")
+            save_image(fake_zebra * 0.5 + 0.5, f"saved_images/phosphene_{idx}.png")
 
         loop.set_postfix(H_real=H_reals / (idx + 1), H_fake=H_fakes / (idx + 1))
 
 
 def main():
-    disc_H = Discriminator(in_channels=3).to(config.DEVICE) # classify image of horses
-    disc_Z = Discriminator(in_channels=3).to(config.DEVICE) # classify image of zebras
-    gen_Z = Generator(img_channels=3, num_residuals=9).to(config.DEVICE) # generate image of zebra from horse
-    gen_H = Generator(img_channels=3, num_residuals=9).to(config.DEVICE) # generate image of horse from zebra
+    phos_map_mat = scipy.io.loadmat('data/grids/100610_12ea_UEA_pm_pix.mat')
+    grid = phos_map_mat['grid']
+    grid = grid/1080*512;
+    disc_H = Discriminator(in_channels=1).to(config.DEVICE) # classify image of horses
+    disc_Z = Discriminator(in_channels=1).to(config.DEVICE) # classify image of zebras
+    gen_Z = Phoscoder(img_channels=1, num_residuals=9).to(config.DEVICE) # generate phosphene image (zebra) from orignial (horse)
+    gen_H = Generator(img_channels=1, num_residuals=9).to(config.DEVICE) # generate image of horse from zebra
     opt_disc = optim.Adam(
         list(disc_H.parameters()) + list(disc_Z.parameters()),
         lr=config.LEARNING_RATE,
@@ -146,13 +164,13 @@ def main():
         )
 
     dataset = HorseZebraDataset(
-        root_horse=config.TRAIN_DIR + "/horses",
-        root_zebra=config.TRAIN_DIR + "/zebras",
+        root_horse=config.TRAIN_DIR + "/original_img",
+        root_zebra=config.TRAIN_DIR + "/phosphene_img",
         transform=config.transforms,
     )
     val_dataset = HorseZebraDataset(
-        root_horse=config.VAL_DIR + "/horses",
-        root_zebra=config.VAL_DIR + "/zebras",
+        root_horse=config.VAL_DIR + "/original_img",
+        root_zebra=config.VAL_DIR + "/phosphene_img",
         transform=config.transforms,
     )
     val_loader = DataLoader(
@@ -184,6 +202,7 @@ def main():
             mse,
             d_scaler,
             g_scaler,
+            grid,
         )
 
         if config.SAVE_MODEL:

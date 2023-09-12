@@ -61,12 +61,12 @@ class Phoscoder(nn.Module):
         # up sampling
         self.up_blocks = nn.ModuleList(
             [
-                ConvBlock(num_features*4, num_features*2, down=False, kernel_size=3, stride=2, padding=1, output_padding=1),
-                ConvBlock(num_features*2, num_features*1, down=False, kernel_size=3, stride=2, padding=1, output_padding=1)
+                # ConvBlock(num_features*4, num_features*2, down=False, kernel_size=3, stride=2, padding=1, output_padding=1),
+                # ConvBlock(num_features*2, num_features*1, down=False, kernel_size=3, stride=2, padding=1, output_padding=1)
             ]
         )
         # final layer, change this so the output is a vector representing phosphene image
-        self.last = nn.Linear(num_features*256*256, 1200) # 256*256 is the size of the image
+        self.last = nn.Linear(num_features*4*128*128, 1200) # 256*256 is the size of the image
 
     # forward method
     def forward(self, x):
@@ -76,6 +76,7 @@ class Phoscoder(nn.Module):
         x = self.res_blocks(x)
         for layer in self.up_blocks:
             x = layer(x)
+        # print(x.size())
         x = torch.flatten(x)
 
         return torch.tanh(self.last(x))
@@ -83,11 +84,12 @@ class Phoscoder(nn.Module):
 # test the generator model
 def test():
     img_channels = 1
-    img_size = 256
+    img_size = 512
     x = torch.randn((1, img_channels, img_size, img_size))
-    gen = Phoscoder(img_channels, 9)
-    print(gen(x).shape)
-    summary(gen,(1, 256, 256))
+    gen = Phoscoder(img_channels=1, num_residuals=9)
+    gen(x)
+    # print(gen(x).shape)
+    # summary(gen,(1, 256, 256))
 
 if __name__ == "__main__":
     test()

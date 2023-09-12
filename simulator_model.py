@@ -11,8 +11,8 @@ class Simulator:
 
     def __init__(self, phoscoding, grid, imgsize = 256):
         self.phoscoding = phoscoding # this is the phosphene coding (level of brightness), output from phosphene_encoder.py
-        self.grid = grid  # this should be a phosphene map, output from matlab
-        self.size = imgsize
+        self.grid = grid * 512/imgsize  # this should be a phosphene map, output from matlab, resize the coordinates to the size of the image (512*512)
+        self.size = 512
         self.image = self.phos_img()
 
 
@@ -54,7 +54,7 @@ def test():
     # grid[:, 2] *=3
     phos_map_mat = scipy.io.loadmat('data/grids/100610_12ea_UEA_pm_pix.mat')
     grid = phos_map_mat['grid']
-    simu = Simulator(phoscoding, grid, imgsize=1080)
+    simu = Simulator(phoscoding, grid/1080*512, imgsize=512)
     img = simu.image
 
     if img is None:
