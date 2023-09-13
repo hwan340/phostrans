@@ -83,14 +83,14 @@ def train_fn(
             cycle_horse_loss = l1(horse, cycle_horse)
 
             # identity loss (remove these for efficiency if you set lambda_identity=0)
-            identity_zebra_encoding = gen_Z(zebra)
-            simu_id = Simulator(identity_zebra_encoding, grid, imgsize=512)
-            identity_zebra = torch.from_numpy(simu_id.image).to(config.DEVICE)
-            cycle_zebra = cycle_zebra[None, None].float()
-
-            identity_horse = gen_H(horse)
-            identity_zebra_loss = l1(zebra, identity_zebra)
-            identity_horse_loss = l1(horse, identity_horse)
+            # identity_zebra_encoding = gen_Z(zebra)
+            # simu_id = Simulator(identity_zebra_encoding, grid, imgsize=512)
+            # identity_zebra = torch.from_numpy(simu_id.image).to(config.DEVICE)
+            # cycle_zebra = cycle_zebra[None, None].float()
+            #
+            # identity_horse = gen_H(horse)
+            # identity_zebra_loss = l1(zebra, identity_zebra)
+            # identity_horse_loss = l1(horse, identity_horse)
 
             # add all togethor
             G_loss = (
@@ -98,8 +98,8 @@ def train_fn(
                 + loss_G_H
                 + cycle_zebra_loss * config.LAMBDA_CYCLE
                 + cycle_horse_loss * config.LAMBDA_CYCLE
-                + identity_horse_loss * config.LAMBDA_IDENTITY
-                + identity_zebra_loss * config.LAMBDA_IDENTITY
+                # + identity_horse_loss * config.LAMBDA_IDENTITY
+                # + identity_zebra_loss * config.LAMBDA_IDENTITY
             )
 
         opt_gen.zero_grad()
@@ -117,7 +117,7 @@ def train_fn(
 def main():
     phos_map_mat = scipy.io.loadmat('data/grids/100610_12ea_UEA_pm_pix.mat')
     grid = phos_map_mat['grid']
-    grid = grid/1080*512;
+    grid = grid/1080*512
     disc_H = Discriminator(in_channels=1).to(config.DEVICE) # classify image of horses
     disc_Z = Discriminator(in_channels=1).to(config.DEVICE) # classify image of zebras
     gen_Z = Phoscoder(img_channels=1, num_residuals=9).to(config.DEVICE) # generate phosphene image (zebra) from orignial (horse)

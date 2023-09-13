@@ -25,14 +25,14 @@ class Simulator:
         radii = self.grid[:, 2] # radius of phosphene in pixel
 
         for i in range(n):
-            phosphene = self.render_phosphene(x[i], y[i], radii[i], rowsInImage, columnsInImage) * 1
-            # phosphene = np.float32(phosphene)
-            gau_phosphene = cv2.GaussianBlur(np.float32(phosphene), ksize=(0, 0), sigmaX=radii[i] / 3, borderType=cv2.BORDER_REPLICATE)
-            gau_phosphene[gau_phosphene < 0.05] = 0
-            img = img + gau_phosphene
+            if self.phoscoding[i] > 0.5:
+                phosphene = self.render_phosphene(x[i], y[i], radii[i], rowsInImage, columnsInImage) * 1
+                gau_phosphene = cv2.GaussianBlur(np.float32(phosphene), ksize=(0, 0), sigmaX=radii[i] / 3, borderType=cv2.BORDER_REPLICATE)
+                gau_phosphene[gau_phosphene < 0.05] = 0
+                img = img + gau_phosphene
 
         img[img > 1] = 1
-        if np.max(img) != 0:
+        if np.max(img) != 0: # normalization, otherwise imange will be white and show all white
             img = img / np.max(img)
 
         return img
@@ -44,7 +44,7 @@ class Simulator:
 
 def test():
     phosnum = 1200
-    phoscoding = np.ones(phosnum)
+    phoscoding = np.random.rand(phosnum)
     # phoscoding = np.random.randint(2, size=phosnum)
     # grid = np.random.rand(phosnum, 3)    # x, y, radius
     # grid[:, 0] *=100

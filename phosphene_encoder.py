@@ -79,7 +79,7 @@ class Phoscoder(nn.Module):
         # print(x.size())
         x = torch.flatten(x)
 
-        return torch.tanh(self.last(x))
+        return torch.sigmoid(self.last(x)) # was tanh
 
 # test the generator model
 def test():
