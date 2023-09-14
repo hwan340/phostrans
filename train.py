@@ -48,8 +48,8 @@ def train_fn(
 
             fake_zebra_endcoding = gen_Z(horse)
             simu = Simulator(fake_zebra_endcoding, grid, imgsize=512)
-            fake_zebra = torch.from_numpy(simu.image).to(config.DEVICE)
-            fake_zebra = fake_zebra[None, None].float() # add batch and channel dimension
+            fake_zebra = torch.from_numpy(simu.image)
+            fake_zebra = fake_zebra[None, None].float().to(config.DEVICE) # add batch and channel dimension
             D_Z_real = disc_Z(zebra)
             D_Z_fake = disc_Z(fake_zebra.detach())
             D_Z_real_loss = mse(D_Z_real, torch.ones_like(D_Z_real))
@@ -75,8 +75,8 @@ def train_fn(
             # cycle loss
             cycle_zebra_encoding = gen_Z(fake_horse)
             simu_cyc = Simulator(cycle_zebra_encoding, grid, imgsize=512)
-            cycle_zebra = torch.from_numpy(simu_cyc.image).to(config.DEVICE)
-            cycle_zebra = cycle_zebra[None, None].float()
+            cycle_zebra = torch.from_numpy(simu_cyc.image)
+            cycle_zebra = cycle_zebra[None, None].float().to(config.DEVICE)
 
             cycle_horse = gen_H(fake_zebra)
             cycle_zebra_loss = l1(zebra, cycle_zebra)
