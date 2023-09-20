@@ -48,8 +48,8 @@ def train_fn(
 
             fake_zebra_endcoding = gen_Z(horse)
             simu = Simulator(fake_zebra_endcoding, grid, imgsize=512)
-            fake_zebra = torch.from_numpy(simu.image)
-            fake_zebra = fake_zebra[None, None].float().to(config.DEVICE) # add batch and channel dimension
+            fake_zebra = torch.from_numpy(simu.image).to(config.DEVICE)
+            fake_zebra = fake_zebra[None, None].float() # add batch and channel dimension
             D_Z_real = disc_Z(zebra)
             D_Z_fake = disc_Z(fake_zebra.detach())
             D_Z_real_loss = mse(D_Z_real, torch.ones_like(D_Z_real))
@@ -75,8 +75,8 @@ def train_fn(
             # cycle loss
             cycle_zebra_encoding = gen_Z(fake_horse)
             simu_cyc = Simulator(cycle_zebra_encoding, grid, imgsize=512)
-            cycle_zebra = torch.from_numpy(simu_cyc.image)
-            cycle_zebra = cycle_zebra[None, None].float().to(config.DEVICE)
+            cycle_zebra = torch.from_numpy(simu_cyc.image).to(config.DEVICE)
+            cycle_zebra = cycle_zebra[None, None].float()
 
             cycle_horse = gen_H(fake_zebra)
             cycle_zebra_loss = l1(zebra, cycle_zebra)
@@ -107,21 +107,21 @@ def train_fn(
         g_scaler.step(opt_gen)
         g_scaler.update()
 
-        if idx % 200 == 0:
-            save_image(fake_horse * 0.5 + 0.5, f"saved_images/original_{idx}.png")
-            save_image(fake_zebra * 0.5 + 0.5, f"saved_images/phosphene_{idx}.png")
+        if (idx+1) % 200 == 0:
+            save_image(fake_horse * 0.5 + 0.5, f"saved_images/original_{idx}.png") # original image
+            save_image(fake_zebra, f"saved_images/phosphene_{idx}.png") # phosphene image
 
         loop.set_postfix(H_real=H_reals / (idx + 1), H_fake=H_fakes / (idx + 1))
 
 
 def main():
-    phos_map_mat = scipy.io.loadmat('data/grids/100610_12ea_UEA_pm_pix.mat')
+    phos_map_mat = scipy.io.loadmat('data/grids/map_1200k.mat')
     grid = phos_map_mat['grid']
     grid = grid/1080*512
     disc_H = Discriminator(in_channels=1).to(config.DEVICE) # classify image of horses
     disc_Z = Discriminator(in_channels=1).to(config.DEVICE) # classify image of zebras
-    gen_Z = Phoscoder(img_channels=1, num_residuals=9).to(config.DEVICE) # generate phosphene image (zebra) from orignial (horse)
-    gen_H = Generator(img_channels=1, num_residuals=9).to(config.DEVICE) # generate image of horse from zebra
+    gen_Z = Phoscoder(img_channels=1, num_residuals=4).to(config.DEVICE) # generate phosphene image (zebra) from orignial (horse)
+    gen_H = Generator(img_channels=1, num_residuals=4).to(config.DEVICE) # generate image of horse from zebra
     opt_disc = optim.Adam(
         list(disc_H.parameters()) + list(disc_Z.parameters()),
         lr=config.LEARNING_RATE,

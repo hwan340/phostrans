@@ -13,8 +13,8 @@ class ConvBlock(nn.Module):
             nn.Conv2d(in_channels, out_channels, padding_mode="reflect", **kwargs) # key word would be kernal size, stride and padding
             if down
             else nn.ConvTranspose2d(in_channels, out_channels, **kwargs),
-            nn.InstanceNorm2d(out_channels),
-            nn.ReLU(inplace=True) if use_act else nn.Identity() # inplace=True copliot is learning form your script
+            nn.BatchNorm2d(out_channels), # we replace instance norm with batch norm
+            nn.LeakyReLU(inplace=True) if use_act else nn.Identity()
         )
 
     # forward method
@@ -45,7 +45,7 @@ class Generator(nn.Module):
         self.initial = nn.Sequential(
             nn.Conv2d(img_channels, num_features, kernel_size=7, stride=1, padding=3, padding_mode="reflect"),
             # nn.InstanceNorm2d(num_features),
-            nn.ReLU(inplace=True)
+            nn.LeakyReLU(inplace=True)
         )
         # down sampling
         self.down_blocks = nn.ModuleList(
@@ -85,7 +85,7 @@ def test():
     x = torch.randn((1, img_channels, img_size, img_size))
     gen = Generator(img_channels, 64)
     print(gen(x).shape)
-    summary(gen, (1, 512, 512))
+    summary(gen, (1, 1, 512, 512))
 
 if __name__ == "__main__":
     test()
