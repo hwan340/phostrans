@@ -96,12 +96,11 @@ class Phoscoder(nn.Module):
 
             # print(x.size())
         x = self.res_blocks(x)
-        print(x.size())
+        # print(x.size())
         for layer in self.up_blocks:
             x = layer(x)
         x = torch.flatten(x)
-
-        return torch.sigmoid(self.last(x)) # was tanh
+        return self.last(x) # was tanh
 
 # test the generator model
 def test():

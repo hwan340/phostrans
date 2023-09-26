@@ -76,7 +76,7 @@ class Generator(nn.Module):
         x = self.res_blocks(x)
         for layer in self.up_blocks:
             x = layer(x)
-        return torch.tanh(self.last(x))
+        return torch.sigmoid(self.last(x))
 
 # test the generator model
 def test():

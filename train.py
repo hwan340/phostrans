@@ -27,8 +27,8 @@ import scipy.io # for loading .mat file
 def train_fn(
     disc_H, disc_Z, gen_Z, gen_H, loader, opt_disc, opt_gen, l1, mse, d_scaler, g_scaler, grid
 ):
-    H_reals = 0
-    H_fakes = 0
+    H_reals = 0 # H_real is the output of discriminator for real horse image
+    H_fakes = 0 # H_fake is the output of discriminator for fake horse image
     loop = tqdm(loader, leave=True)
 
     for idx, (zebra, horse) in enumerate(loop):
@@ -46,10 +46,11 @@ def train_fn(
             D_H_fake_loss = mse(D_H_fake, torch.zeros_like(D_H_fake))
             D_H_loss = D_H_real_loss + D_H_fake_loss
 
-            fake_zebra_endcoding = gen_Z(horse)
-            simu = Simulator(fake_zebra_endcoding, grid, imgsize=512)
+            fake_zebra_endcoding = gen_Z(horse).to(config.DEVICE)
+            simu = Simulator(torch.sigmoid(fake_zebra_endcoding), grid, imgsize=512)
             fake_zebra = torch.from_numpy(simu.image).to(config.DEVICE)
             fake_zebra = fake_zebra[None, None].float() # add batch and channel dimension
+
             D_Z_real = disc_Z(zebra)
             D_Z_fake = disc_Z(fake_zebra.detach())
             D_Z_real_loss = mse(D_Z_real, torch.ones_like(D_Z_real))
@@ -73,8 +74,8 @@ def train_fn(
             loss_G_Z = mse(D_Z_fake, torch.ones_like(D_Z_fake))
 
             # cycle loss
-            cycle_zebra_encoding = gen_Z(fake_horse)
-            simu_cyc = Simulator(cycle_zebra_encoding, grid, imgsize=512)
+            cycle_zebra_encoding = gen_Z(fake_horse).to(config.DEVICE)
+            simu_cyc = Simulator(torch.sigmoid(cycle_zebra_encoding), grid, imgsize=512)
             cycle_zebra = torch.from_numpy(simu_cyc.image).to(config.DEVICE)
             cycle_zebra = cycle_zebra[None, None].float()
 
@@ -92,10 +93,30 @@ def train_fn(
             # identity_zebra_loss = l1(zebra, identity_zebra)
             # identity_horse_loss = l1(horse, identity_horse)
 
+            # BCE loss for the encoding and pixel sampled from images.
+            x, y = grid[:, 0], grid[:, 1]
+            # filter = (x >= 0) & (x <= 512) & (y >= 0) & (y <= 512)
+            # x, y = x[filter], y[filter]
+            criterion = nn.BCEWithLogitsLoss()
+
+            # zebra_pix_sample = horse[:, 0, x, y].to(config.DEVICE)
+            # zebra_pix_sample = torch.squeeze(zebra_pix_sample)
+            # zebra_pix_sample = (zebra_pix_sample-min(zebra_pix_sample))/(max(zebra_pix_sample)-min(zebra_pix_sample))
+            # BCE_loss_zebar = criterion(fake_zebra_endcoding, zebra_pix_sample)
+
+            # cycle_zebra_pix_sample = cycle_horse[:, 0, x, y].to(config.DEVICE)
+            # cycle_zebra_pix_sample = torch.squeeze(cycle_zebra_pix_sample)
+            # cycle_zebra_pix_sample = (cycle_zebra_pix_sample-min(cycle_zebra_pix_sample))/(max(cycle_zebra_pix_sample)-min(cycle_zebra_pix_sample))
+            # BCE_loss_cycle = criterion(cycle_zebra_encoding, cycle_zebra_pix_sample)
+
+
+
             # add all togethor
             G_loss = (
                 loss_G_Z
                 + loss_G_H
+                # + BCE_loss_zebar
+                # + BCE_loss_cycle
                 + cycle_zebra_loss * config.LAMBDA_CYCLE
                 + cycle_horse_loss * config.LAMBDA_CYCLE
                 # + identity_horse_loss * config.LAMBDA_IDENTITY
@@ -108,8 +129,10 @@ def train_fn(
         g_scaler.update()
 
         if (idx+1) % 200 == 0:
-            save_image(fake_horse * 0.5 + 0.5, f"saved_images/original_{idx}.png") # original image
-            save_image(fake_zebra, f"saved_images/phosphene_{idx}.png") # phosphene image
+            save_image(fake_horse, f"saved_images/g_original_{idx}.png") # original image
+            save_image(fake_zebra, f"saved_images/g_phosphene_{idx}.png") # phosphene image
+            save_image(zebra, f"saved_images/phosphene_{idx}.png") # phosphene image
+            save_image(horse, f"saved_images/cycle_{idx}.png") # cycle image
 
         loop.set_postfix(H_real=H_reals / (idx + 1), H_fake=H_fakes / (idx + 1))
 
@@ -117,7 +140,7 @@ def train_fn(
 def main():
     phos_map_mat = scipy.io.loadmat('data/grids/map_1200k.mat')
     grid = phos_map_mat['grid']
-    grid = grid/1080*512
+    grid = grid/1080*511 # might be 1080 for retinotopic map
     disc_H = Discriminator(in_channels=1).to(config.DEVICE) # classify image of horses
     disc_Z = Discriminator(in_channels=1).to(config.DEVICE) # classify image of zebras
     gen_Z = Phoscoder(img_channels=1, num_residuals=4).to(config.DEVICE) # generate phosphene image (zebra) from orignial (horse)
