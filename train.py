@@ -25,7 +25,7 @@ import scipy.io # for loading .mat file
 # zebra -> target/phosphene
 
 def train_fn(
-    disc_H, disc_Z, gen_Z, gen_H, loader, opt_disc, opt_gen, l1, mse, d_scaler, g_scaler, grid
+    disc_H, disc_Z, gen_Z, gen_H, simu, loader, opt_disc, opt_gen, l1, mse, d_scaler, g_scaler, grid
 ):
     H_reals = 0 # H_real is the output of discriminator for real horse image
     H_fakes = 0 # H_fake is the output of discriminator for fake horse image
@@ -39,7 +39,7 @@ def train_fn(
         with torch.cuda.amp.autocast():
             fake_horse = gen_H(zebra)
             D_H_real = disc_H(horse)
-            D_H_fake = disc_H(fake_horse.detach())
+            D_H_fake = disc_H(fake_horse)
             H_reals += D_H_real.mean().item()
             H_fakes += D_H_fake.mean().item()
             D_H_real_loss = mse(D_H_real, torch.ones_like(D_H_real))
@@ -47,12 +47,15 @@ def train_fn(
             D_H_loss = D_H_real_loss + D_H_fake_loss
 
             fake_zebra_endcoding = gen_Z(horse).to(config.DEVICE)
-            simu = Simulator(torch.sigmoid(fake_zebra_endcoding), grid, imgsize=512)
-            fake_zebra = torch.from_numpy(simu.image).to(config.DEVICE)
-            fake_zebra = fake_zebra[None, None].float() # add batch and channel dimension
+            # simu = Simulator(imgsize=512)
+            # fake_zebra = simu(torch.sigmoid(fake_zebra_endcoding), grid, config.DEVICE)
+
+            # simu = Simulator(grid / 1080 * 512, config.DEVICE, imgsize=512)
+            fake_zebra = simu(torch.sigmoid(fake_zebra_endcoding))
+            # fake_zebra = fake_zebra[None, None] # add batch and channel dimension
 
             D_Z_real = disc_Z(zebra)
-            D_Z_fake = disc_Z(fake_zebra.detach())
+            D_Z_fake = disc_Z(fake_zebra)
             D_Z_real_loss = mse(D_Z_real, torch.ones_like(D_Z_real))
             D_Z_fake_loss = mse(D_Z_fake, torch.zeros_like(D_Z_fake))
             D_Z_loss = D_Z_real_loss + D_Z_fake_loss
@@ -61,7 +64,7 @@ def train_fn(
             D_loss = (D_H_loss + D_Z_loss) / 2
 
         opt_disc.zero_grad()
-        d_scaler.scale(D_loss).backward()
+        d_scaler.scale(D_loss).backward(retain_graph=True)
         d_scaler.step(opt_disc)
         d_scaler.update()
 
@@ -75,9 +78,12 @@ def train_fn(
 
             # cycle loss
             cycle_zebra_encoding = gen_Z(fake_horse).to(config.DEVICE)
-            simu_cyc = Simulator(torch.sigmoid(cycle_zebra_encoding), grid, imgsize=512)
-            cycle_zebra = torch.from_numpy(simu_cyc.image).to(config.DEVICE)
-            cycle_zebra = cycle_zebra[None, None].float()
+            # simu_cyc = Simulator(imgsize=512)
+            # cycle_zebra = simu_cyc(torch.sigmoid(cycle_zebra_encoding), grid, config.DEVICE)
+
+            # simu = Simulator(grid / 1080 * 512, config.DEVICE, imgsize=512)
+            cycle_zebra = simu(torch.sigmoid(cycle_zebra_encoding))
+            # cycle_zebra = cycle_zebra[None, None]
 
             cycle_horse = gen_H(fake_zebra)
             cycle_zebra_loss = l1(zebra, cycle_zebra)
@@ -102,7 +108,7 @@ def train_fn(
             # zebra_pix_sample = horse[:, 0, x, y].to(config.DEVICE)
             # zebra_pix_sample = torch.squeeze(zebra_pix_sample)
             # zebra_pix_sample = (zebra_pix_sample-min(zebra_pix_sample))/(max(zebra_pix_sample)-min(zebra_pix_sample))
-            # BCE_loss_zebar = criterion(fake_zebra_endcoding, zebra_pix_sample)
+            # BCE_loss_zebra = criterion(fake_zebra_endcoding, zebra_pix_sample)
 
             # cycle_zebra_pix_sample = cycle_horse[:, 0, x, y].to(config.DEVICE)
             # cycle_zebra_pix_sample = torch.squeeze(cycle_zebra_pix_sample)
@@ -115,7 +121,7 @@ def train_fn(
             G_loss = (
                 loss_G_Z
                 + loss_G_H
-                # + BCE_loss_zebar
+                # + BCE_loss_zebra
                 # + BCE_loss_cycle
                 + cycle_zebra_loss * config.LAMBDA_CYCLE
                 + cycle_horse_loss * config.LAMBDA_CYCLE
@@ -124,15 +130,15 @@ def train_fn(
             )
 
         opt_gen.zero_grad()
-        g_scaler.scale(G_loss).backward()
+        g_scaler.scale(G_loss).backward(retain_graph=True)
         g_scaler.step(opt_gen)
         g_scaler.update()
 
         if (idx+1) % 200 == 0:
             save_image(fake_horse, f"saved_images/g_original_{idx}.png") # original image
             save_image(fake_zebra, f"saved_images/g_phosphene_{idx}.png") # phosphene image
-            save_image(zebra, f"saved_images/phosphene_{idx}.png") # phosphene image
-            save_image(horse, f"saved_images/cycle_{idx}.png") # cycle image
+            # save_image(zebra, f"saved_images/phosphene_{idx}.png") # phosphene image
+            # save_image(horse, f"saved_images/cycle_{idx}.png") # cycle image
 
         loop.set_postfix(H_real=H_reals / (idx + 1), H_fake=H_fakes / (idx + 1))
 
@@ -145,6 +151,7 @@ def main():
     disc_Z = Discriminator(in_channels=1).to(config.DEVICE) # classify image of zebras
     gen_Z = Phoscoder(img_channels=1, num_residuals=4).to(config.DEVICE) # generate phosphene image (zebra) from orignial (horse)
     gen_H = Generator(img_channels=1, num_residuals=4).to(config.DEVICE) # generate image of horse from zebra
+    simu = Simulator(grid / 1080 * 512, config.DEVICE, imgsize=512) # simulate phosphene image from phosphene encoding
     opt_disc = optim.Adam(
         list(disc_H.parameters()) + list(disc_Z.parameters()),
         lr=config.LEARNING_RATE,
@@ -218,6 +225,7 @@ def main():
             disc_Z,
             gen_Z,
             gen_H,
+            simu,
             loader,
             opt_disc,
             opt_gen,

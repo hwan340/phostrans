@@ -1,19 +1,11 @@
 #This is the discriminator model for the CycleGAN model
 import torch
 import torch.nn as nn
+from torchinfo import summary
 
 # Define the block for discriminator model
 class Block(nn.Module):
     # initialize the class with in_channels, out_channels, and stride
-
-    # def __init__(self, in_channels, out_channels, stride):
-    #     super(Block, self).__init__()
-    #     # convolutional layer
-    #     self.conv = nn.Conv2d(in_channels, out_channels, kernel_size=4, stride=stride, padding=1)
-    #     # batch normalization
-    #     self.batch_norm = nn.BatchNorm2d(out_channels)
-    #     # leaky relu
-    #     self.leaky_relu = nn.LeakyReLU(0.2, inplace=True)
 
     def __init__(self, in_channels, out_channels, stride):
         super().__init__()
@@ -68,6 +60,7 @@ def test():
     model = Discriminator(in_channels=1)
     preds = model(x)
     print(preds.shape)
+    summary(model, (1, 1, 512, 512))
 
 if __name__ == "__main__":
     test()
